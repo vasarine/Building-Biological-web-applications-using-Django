@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-card">
+    <h2 class="tool-title">Register</h2>
+    <p style="text-align: center; color: #6c8099; margin-bottom: 32px; font-size: 15px; line-height: 1.6;">
+        Create an account to save and manage your HMM analysis projects.
+    </p>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% for field in form %}
+        <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+
+            {% if field.help_text %}
+                <div class="form-help">
+                    {{ field.help_text|safe }}
+                </div>
+            {% endif %}
+
+            {% for error in field.errors %}
+                <div class="form-error">{{ error }}</div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="button">Register</button>
+    </form>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <span style="color: #6c8099; font-size: 14px;">Already have an account? </span>
+        <a href="{% url 'login' %}" style="color: #6086ad; text-decoration: none; font-weight: 500;">Log in</a>
+    </div>
+</div>
+{% endblock %}

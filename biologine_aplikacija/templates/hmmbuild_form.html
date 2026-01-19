@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="main-content">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2 class="tool-title" style="margin: 0;">HMMBUILD</h2>
+    <a href="{% url 'home' %}" style="text-decoration: none; color: #5a7391; font-size: 14px; padding: 8px 16px; border-radius: 6px; background: #f0f4f8; transition: all 0.2s; border: 1px solid #dae3ed;">← Home</a>
+  </div>
+
+  <div class="form-card">
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      {% if form and form.non_field_errors %}
+        {% for err in form.non_field_errors %}
+          <p class="form-error">{{ err }}</p>
+        {% endfor %}
+      {% endif %}
+
+      {% if user.is_authenticated %}
+        <label for="{{ form.name.id_for_label }}">Project Name:</label>
+        {{ form.name }}
+      {% endif %}
+      {% if form and form.name.errors %}
+        {% for err in form.name.errors %}
+          <p class="form-error">{{ err }}</p>
+        {% endfor %}
+      {% endif %}
+
+      <label for="{{ form.msa_file.id_for_label }}">Upload alignment (MSA) file:</label>
+      <div class="form-help">(Supported formats: <b>.sto, .aln, .phy, .fa, .fasta</b>)</div>
+      {{ form.msa_file }}
+      {% if form and form.msa_file.errors %}
+        {% for err in form.msa_file.errors %}
+          <p class="form-error">{{ err }}</p>
+        {% endfor %}
+      {% endif %}
+
+      <button type="submit" class="button" style="margin-top: 18px;">Build Model</button>
+    </form>
+
+    {% if error %}
+      <p class="form-error">{{ error|safe }}</p>
+    {% endif %}
+  </div>
+
+  {% if hmm_model_name or hmm_model_text %}
+    <div class="result-card">
+      <div class="card-header">
+        <strong>Results</strong>
+        {% if hmm_model_name %}
+          <a class="button" href="{% url 'download_result' file_name=hmm_model_name %}">Download</a>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if hmm_model_text %}
+          <pre class="hmmer-output">{{ hmm_model_text }}</pre>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

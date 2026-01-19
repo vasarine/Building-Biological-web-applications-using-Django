@@ -1,0 +1,356 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="main-content">
+  <div class="page-header">
+    <h2 class="tool-title">My Projects</h2>
+    <div class="tool-selector">
+      <label for="tool-select">Filter:</label>
+      <select id="tool-select" onchange="window.location.href='?tool='+this.value">
+        <option value="" {% if not active_tool %}selected{% endif %}>All Tools</option>
+        <option value="hmmbuild" {% if active_tool == 'hmmbuild' %}selected{% endif %}>HMMBUILD</option>
+        <option value="hmmemit" {% if active_tool == 'hmmemit' %}selected{% endif %}>HMMEMIT</option>
+        <option value="hmmsearch" {% if active_tool == 'hmmsearch' %}selected{% endif %}>HMMSEARCH</option>
+      </select>
+    </div>
+  </div>
+
+  {% if projects %}
+    <form method="POST" action="{% url 'delete_selected_projects' %}" id="bulk-delete-form">
+      {% csrf_token %}
+
+      <div class="project-controls">
+        <div class="project-controls-left">
+          <label><input type="checkbox" id="select-all"> Select All</label>
+        </div>
+        <div class="project-controls-right">
+          <button type="submit" id="bulk-delete-btn" class="button-standard" style="display:none;">
+            Delete Selected
+          </button>
+        </div>
+      </div>
+
+      {% for project in projects %}
+      <div class="project-card" data-tool="{{ project.tool_type }}">
+        <div class="project-header">
+          <div class="project-title-row">
+            {% if project.is_mine %}
+              <input type="checkbox" class="project-checkbox" name="selected_projects" value="{{ project.id }}" data-tool="{{ project.tool_type }}">
+            {% endif %}
+            <strong class="project-name">{{ project.name }}</strong>
+
+            <!-- Tool Type Badge (if showing all tools) -->
+            {% if not active_tool and project.tool_type %}
+              <span class="badge badge-tool badge-{{ project.tool_type }}">{{ project.tool_type|upper }}</span>
+            {% endif %}
+
+            {% if not project.is_mine %}
+              <span class="badge badge-shared">Shared by {{ project.user.username }}</span>
+            {% endif %}
+
+            {% if project.visibility == 'public' %}
+              <span class="badge badge-public">Public</span>
+            {% elif project.visibility == 'link' %}
+              <span class="badge badge-link">Link Only</span>
+            {% elif project.visibility == 'private' %}
+              <span class="badge badge-private">Private</span>
+            {% endif %}
+
+            <!-- Action buttons moved up here -->
+            <div class="project-actions-top">
+              <a href="{% url 'shared-project' project.tool_type project.share_token %}" class="button-standard">
+                View
+              </a>
+              {% if project.is_mine %}
+                <a href="{% url 'share-project' project.tool_type project.id %}" class="button-standard">
+                  Share
+                </a>
+                <button
+                  type="button"
+                  class="button-standard button-delete"
+                  onclick="deleteProject('{% url 'delete_project' project.id %}?tool={{ project.tool_type }}', '{{ project.name }}', '{{ active_tool|default:'' }}')">
+                  Delete
+                </button>
+              {% else %}
+                <button
+                  type="button"
+                  class="button-standard"
+                  onclick="removeSharedProject('{% url 'remove-shared-project' project.tool_type project.id %}', '{{ project.name }}')">
+                  Remove
+                </button>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="project-meta-row">
+            <span class="project-date">{{ project.created_at|date:"Y-m-d H:i" }}</span>
+          </div>
+        </div>
+
+        <div class="project-files">
+          {% with tool=active_tool|default:project.tool_type %}
+          {% if tool == 'hmmbuild' %}
+            <div class="file-row">
+              <div class="file-label">Input File:</div>
+              <div class="file-list">
+                <a class="button-standard" href="{{ project.msa_file.url }}" download>MSA</a>
+              </div>
+            </div>
+            <div class="file-row">
+              <div class="file-label">Result:</div>
+              <div class="file-list">
+                {% if project.hmm_file %}<a class="button-standard" href="{{ project.hmm_file.url }}" download>HMM</a>{% endif %}
+              </div>
+            </div>
+
+          {% elif tool == 'hmmsearch' %}
+            <div class="file-row">
+              <div class="file-label">Input Files:</div>
+              <div class="file-list">
+                {% if project.fasta_file %}<a class="button-standard" href="{{ project.fasta_file.url }}" download>FASTA</a>{% endif %}
+                {% if project.hmm_source == 'pfam' %}
+                  <span class="badge-info">Pfam: {{ project.external_hmm_id }}</span>
+                {% elif project.hmm_source == 'interpro' %}
+                  <span class="badge-info">InterPro: {{ project.external_hmm_id }}</span>
+                {% elif project.hmm_file %}
+                  <a class="button-standard" href="{{ project.hmm_file.url }}" download>HMM</a>
+                {% endif %}
+              </div>
+            </div>
+            <div class="file-row">
+              <div class="file-label">Results:</div>
+              <div class="file-list">
+                {% if project.out_file %}<a class="button-standard" href="{{ project.out_file.url }}" download>OUT</a>{% endif %}
+                {% if project.tblout_file %}<a class="button-standard" href="{{ project.tblout_file.url }}" download>TBLOUT</a>{% endif %}
+                {% if project.domtbl_file %}<a class="button-standard" href="{{ project.domtbl_file.url }}" download>DOMTBL</a>{% endif %}
+              </div>
+            </div>
+
+          {% elif tool == 'hmmemit' %}
+            <div class="file-row">
+              <div class="file-label">Input File:</div>
+              <div class="file-list">
+                {% if project.hmm_source == 'pfam' %}
+                  <span class="badge-info">Pfam: {{ project.external_hmm_id }}</span>
+                {% elif project.hmm_source == 'interpro' %}
+                  <span class="badge-info">InterPro: {{ project.external_hmm_id }}</span>
+                {% elif project.hmm_file %}
+                  <a class="button-standard" href="{{ project.hmm_file.url }}" download>HMM</a>
+                {% endif %}
+              </div>
+            </div>
+            <div class="file-row">
+              <div class="file-label">Result:</div>
+              <div class="file-list">
+                {% if project.output_file %}<a class="button-standard" href="{{ project.output_file.url }}" download>OUT</a>{% endif %}
+              </div>
+            </div>
+          {% endif %}
+          {% endwith %}
+        </div>
+
+        {% if project.result_text %}
+          <details class="result-details">
+            <summary><span class="arrow">▶</span> View Result</summary>
+            <pre>{{ project.result_text }}</pre>
+          </details>
+        {% endif %}
+
+        {% if project.tblout_text %}
+          <details class="result-details">
+            <summary><span class="arrow">▶</span> View .tblout File Content</summary>
+            <pre>{{ project.tblout_text }}</pre>
+          </details>
+        {% endif %}
+
+        {% if project.domtbl_text %}
+          <details class="result-details">
+            <summary><span class="arrow">▶</span> View .domtbl File Content</summary>
+            <pre>{{ project.domtbl_text }}</pre>
+          </details>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </form>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?tool={{ active_tool }}&page=1" class="button-standard">First</a>
+          <a href="?tool={{ active_tool }}&page={{ page_obj.previous_page_number }}" class="button-standard">Previous</a>
+        {% endif %}
+
+        <span class="pagination-info">
+          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+          <a href="?tool={{ active_tool }}&page={{ page_obj.next_page_number }}" class="button-standard">Next</a>
+          <a href="?tool={{ active_tool }}&page={{ page_obj.paginator.num_pages }}" class="button-standard">Last</a>
+        {% endif %}
+      </div>
+    {% endif %}
+
+  {% else %}
+    <div style="text-align: center; padding: 60px 40px; background: linear-gradient(135deg, #f8fafc 0%, #eef4fa 100%); border-radius: 12px; border: 2px dashed #c9d6e9; margin-top: 40px; box-shadow: 0 2px 8px rgba(96, 134, 173, 0.06);">
+      <h3 style="color: #5a7391; font-size: 20px; font-weight: 600; margin: 0 0 12px 0;">No Projects</h3>
+      <p style="color: #7a8a9e; font-size: 15px; margin: 0; max-width: 400px; margin-left: auto; margin-right: auto; line-height: 1.6;">
+        You don't have any projects yet. Start using the tools and your projects will appear here.
+      </p>
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 30px;
+    padding: 20px 0;
+  }
+
+  .pagination-info {
+    font-weight: 600;
+    color: #294059;
+    padding: 0 15px;
+  }
+
+  .project-actions-top {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .button-delete {
+    background-color: #fef0f0 !important;
+    color: #c95656 !important;
+    border-color: #e8b8b8 !important;
+  }
+
+  .button-delete:hover {
+    background-color: #fee5e5 !important;
+    border-color: #dba3a3 !important;
+    color: #b94747 !important;
+  }
+</style>
+
+<script>
+function deleteProject(url, projectName, fromTool) {
+  if (!confirm('Are you sure you want to delete the project "' + projectName + '"?')) {
+    return;
+  }
+
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  // Create form data to send the current view's tool parameter
+  const formData = new FormData();
+  formData.append('from_tool', fromTool);
+
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrfToken,
+    },
+    body: formData,
+  })
+  .then(response => {
+    if (response.redirected) {
+      window.location.href = response.url;
+    } else {
+      window.location.reload();
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error deleting project');
+  });
+}
+
+function removeSharedProject(url, projectName) {
+  if (!confirm('Are you sure you want to remove the project "' + projectName + '" from your list?')) {
+    return;
+  }
+
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrfToken,
+    },
+  })
+  .then(response => {
+    if (response.redirected) {
+      window.location.href = response.url;
+    } else {
+      window.location.reload();
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error removing project');
+  });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const selectAll = document.getElementById("select-all");
+  const checkboxes = document.querySelectorAll(".project-checkbox");
+  const bulkDeleteBtn = document.getElementById("bulk-delete-btn");
+  const bulkDeleteForm = document.getElementById("bulk-delete-form");
+
+  function toggleDeleteButton() {
+    const checked = document.querySelectorAll(".project-checkbox:checked").length > 0;
+    if (bulkDeleteBtn) bulkDeleteBtn.style.display = checked ? "inline-block" : "none";
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener("change", function () {
+      checkboxes.forEach(cb => cb.checked = this.checked);
+      toggleDeleteButton();
+    });
+  }
+
+  checkboxes.forEach(cb => cb.addEventListener("change", toggleDeleteButton));
+
+  // Before submitting form, add tool_type for each selected project
+  if (bulkDeleteForm) {
+    bulkDeleteForm.addEventListener("submit", function(e) {
+      e.preventDefault(); // Stop default submit
+
+      const checkedBoxes = document.querySelectorAll(".project-checkbox:checked");
+
+      // Group projects by tool_type
+      const projectsByTool = {};
+      checkedBoxes.forEach(cb => {
+        const toolType = cb.getAttribute('data-tool');
+        if (!projectsByTool[toolType]) {
+          projectsByTool[toolType] = [];
+        }
+        projectsByTool[toolType].push(cb.value);
+      });
+
+      // Remove all checkboxes from form submit
+      checkboxes.forEach(cb => {
+        cb.disabled = true;
+      });
+
+      // Add hidden inputs
+      for (const [toolType, projectIds] of Object.entries(projectsByTool)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'projects_by_tool';
+        input.value = JSON.stringify({tool: toolType, ids: projectIds});
+        bulkDeleteForm.appendChild(input);
+      }
+
+      // Submit form
+      bulkDeleteForm.submit();
+    });
+  }
+});
+</script>
+{% endblock %}

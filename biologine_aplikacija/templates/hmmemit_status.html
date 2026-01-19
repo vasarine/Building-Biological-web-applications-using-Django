@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="main-content">
+  <h2 class="tool-title">HMMEMIT</h2>
+
+  <div class="form-card">
+    <div class="status-navigation">
+      <a href="{% url 'hmmemit_form' %}" class="status-nav-button">← Back</a>
+      <a href="{% url 'home' %}" class="status-nav-button">Home</a>
+    </div>
+
+    <h3 class="status-title">{{ project.name }}</h3>
+
+    <div id="status-container" class="status-container">
+      <div class="status-header">
+        <span id="task-message" class="status-message">Waiting...</span>
+        <span id="task-status" class="status-label">{{ project.task_status }}</span>
+      </div>
+
+      <div class="progress-bar-container">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+      <p class="progress-percent"><span id="progress-percent">0</span>%</p>
+    </div>
+
+    <div id="error-container" class="error-container">
+      <p class="error-message"><span id="error-message"></span></p>
+    </div>
+  </div>
+
+  {% if project.task_status == 'SUCCESS' and output_text %}
+    <div class="result-card">
+      <div class="card-header">
+        <strong>Generated sequences</strong>
+        {% if output_filename %}
+          <a class="button" href="{% url 'hmmemit_download' file_name=output_filename %}">Download</a>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <pre class="hmmer-output">{{ output_text }}</pre>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+const taskId = "{{ project.task_id }}";
+const statusUrl = "{% url 'hmmemit_task_status' task_id='TASK_ID' %}".replace('TASK_ID', taskId);
+const initialStatus = "{{ project.task_status }}";
+let pollInterval;
+let isReloading = false;  // Flag to prevent multiple reloads
+
+function updateStatus() {
+  if (!taskId || isReloading) {
+    return;
+  }
+
+  fetch(statusUrl)
+    .then(response => response.json())
+    .then(data => {
+      console.log('Task status:', data);
+
+      document.getElementById('task-status').textContent = data.status;
+      document.getElementById('task-message').textContent = data.message || 'Waiting...';
+
+      const progress = data.progress || 0;
+      document.getElementById('progress-bar').style.width = progress + '%';
+      document.getElementById('progress-percent').textContent = progress;
+
+      if (data.status === 'SUCCESS' && !isReloading) {
+        isReloading = true;
+        clearInterval(pollInterval);
+        document.getElementById('task-message').textContent = 'Sequences generated! Reloading...';
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else if (data.status === 'FAILURE') {
+        clearInterval(pollInterval);
+        document.getElementById('error-container').style.display = 'block';
+        document.getElementById('error-message').textContent = data.error || 'Unknown error';
+      }
+    })
+    .catch(error => {
+      console.error('Error checking status:', error);
+    });
+}
+
+// If task ID exists
+if (taskId) {
+  // If status is SUCCESS or FAILURE, just update UI (no polling or reload)
+  if (initialStatus === 'SUCCESS') {
+    document.getElementById('progress-bar').style.width = '100%';
+    document.getElementById('progress-percent').textContent = '100';
+    document.getElementById('task-message').textContent = 'Sequences generated successfully!';
+  } else if (initialStatus === 'FAILURE') {
+    document.getElementById('error-container').style.display = 'block';
+    document.getElementById('error-message').textContent = 'Task failed';
+  } else {
+    // Only if still running - start polling
+    updateStatus();  // First update
+    pollInterval = setInterval(updateStatus, 2000);
+  }
+}
+</script>
+{% endblock %}

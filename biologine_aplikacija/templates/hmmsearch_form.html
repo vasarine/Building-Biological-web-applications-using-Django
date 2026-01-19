@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="main-content">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2 class="tool-title" style="margin: 0;">HMMSEARCH</h2>
+    <a href="{% url 'home' %}" style="text-decoration: none; color: #5a7391; font-size: 14px; padding: 8px 16px; border-radius: 6px; background: #f0f4f8; transition: all 0.2s; border: 1px solid #dae3ed;">← Home</a>
+  </div>
+
+  <div class="form-card">
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      {% if form and form.non_field_errors %}
+        {% for err in form.non_field_errors %}
+          <p class="form-error">{{ err }}</p>
+        {% endfor %}
+      {% endif %}
+
+      {% if user.is_authenticated %}
+        <label for="{{ form.name.id_for_label }}">Project name:</label>
+        {{ form.name }}
+      {% endif %}
+      {% if form and form.name.errors %}
+        {% for err in form.name.errors %}
+          <p class="form-error">{{ err }}</p>
+        {% endfor %}
+      {% endif %}
+
+      <label for="{{ form.hmm_source.id_for_label }}">{{ form.hmm_source.label }}:</label>
+      <style>
+        #hmm_source > div {
+          display: inline-block !important;
+          margin-right: 30px !important;
+        }
+        #hmm_source > div:last-child {
+          margin-right: 0 !important;
+        }
+      </style>
+      <div class="radio-group" style="margin-bottom: 24px;">
+        {{ form.hmm_source }}
+      </div>
+      {% if form and form.hmm_source.errors %}
+        {% for err in form.hmm_source.errors %}
+          <p class="form-error">{{ err }}</p>
+        {% endfor %}
+      {% endif %}
+
+      <div id="upload-section" style="margin-bottom: 20px;">
+        <label for="{{ form.hmm_file.id_for_label }}">{{ form.hmm_file.label }}</label>
+        {{ form.hmm_file }}
+        {% if form and form.hmm_file.errors %}
+          {% for err in form.hmm_file.errors %}
+            <p class="form-error">{{ err }}</p>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      <div id="external-section" style="display: none; margin-bottom: 20px;">
+        <label for="{{ form.external_hmm_id.id_for_label }}">{{ form.external_hmm_id.label }}:</label>
+        <div class="autocomplete-container">
+          {{ form.external_hmm_id }}
+          <div id="autocomplete-results" class="autocomplete-dropdown"></div>
+        </div>
+        <small style="display: block; margin-top: 5px; color: #666;">
+          You can enter: Pfam ID (PF00001), InterPro ID (IPR000001) or search by name (min. 3 characters, e.g. "kinase")
+        </small>
+        {% if form and form.external_hmm_id.errors %}
+          {% for err in form.external_hmm_id.errors %}
+            <p class="form-error">{{ err }}</p>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      <label for="{{ form.fasta_file.id_for_label }}">{{ form.fasta_file.label }}</label>
+      {{ form.fasta_file }}
+      {% if form and form.fasta_file.errors %}
+        {% for err in form.fasta_file.errors %}
+          <p class="form-error">{{ err }}</p>
+        {% endfor %}
+      {% endif %}
+
+      <button type="submit" class="button" style="margin-top: 18px;">Run Search</button>
+    </form>
+
+    {% if error %}
+      <p class="form-error">{{ error|safe }}</p>
+    {% endif %}
+  </div>
+
+  {% if result_text or tblout_text or domtbl_text %}
+    <div class="project-card">
+      <div class="file-row">
+        <div class="file-label">Result files:</div>
+        <div class="file-list">
+          {% if out_filename %}
+            <a class="button-standard" href="{% url 'hmmsearch_download' file_name=out_filename %}">OUT</a>
+          {% endif %}
+          {% if tblout_filename %}
+            <a class="button-standard" href="{% url 'hmmsearch_download' file_name=tblout_filename %}">TBLOUT</a>
+          {% endif %}
+          {% if domtbl_filename %}
+            <a class="button-standard" href="{% url 'hmmsearch_download' file_name=domtbl_filename %}">DOMTBL</a>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if result_text %}
+        <details class="result-details" open>
+          <summary><span class="arrow">▶</span> .out file contents</summary>
+          <pre class="hmmer-output">{{ result_text }}</pre>
+        </details>
+      {% endif %}
+
+      {% if tblout_text %}
+        <details class="result-details">
+          <summary><span class="arrow">▶</span> .tblout file contents</summary>
+          <pre class="hmmer-output">{{ tblout_text }}</pre>
+        </details>
+      {% endif %}
+
+      {% if domtbl_text %}
+        <details class="result-details">
+          <summary><span class="arrow">▶</span> .domtbl file contents</summary>
+          <pre class="hmmer-output">{{ domtbl_text }}</pre>
+        </details>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const hmmSourceRadios = document.querySelectorAll('input[name="hmm_source"]');
+    const uploadSection = document.getElementById('upload-section');
+    const externalSection = document.getElementById('external-section');
+    const autocompleteInput = document.getElementById('external_hmm_id');
+    const autocompleteResults = document.getElementById('autocomplete-results');
+
+    function toggleSections() {
+        const selectedValue = document.querySelector('input[name="hmm_source"]:checked')?.value;
+
+        if (selectedValue === 'upload') {
+            uploadSection.style.display = 'block';
+            externalSection.style.display = 'none';
+        } else if (selectedValue === 'library') {
+            uploadSection.style.display = 'none';
+            externalSection.style.display = 'block';
+        }
+    }
+
+    // Listen to changes
+    hmmSourceRadios.forEach(radio => {
+        radio.addEventListener('change', toggleSections);
+    });
+
+    // Initial state
+    toggleSections();
+
+    // Autocomplete functionality
+    let debounceTimer;
+
+    function displayResults(results) {
+        if (results.length > 0) {
+            autocompleteResults.innerHTML = results.map(result =>
+                `<div class="autocomplete-item" data-id="${result.id}">
+                    <strong>${result.id}</strong> - ${result.name}
+                    <div class="autocomplete-desc">${result.description || ''}</div>
+                </div>`
+            ).join('');
+            autocompleteResults.style.display = 'block';
+
+            // Add click handlers
+            document.querySelectorAll('.autocomplete-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    autocompleteInput.value = this.dataset.id;
+                    autocompleteResults.innerHTML = '';
+                    autocompleteResults.style.display = 'none';
+                });
+            });
+        } else {
+            autocompleteResults.innerHTML = '<div class="autocomplete-item">No results found</div>';
+            autocompleteResults.style.display = 'block';
+        }
+    }
+
+    function showPopularSuggestions() {
+        // Show popular domains instantly
+        autocompleteResults.innerHTML = '<div class="autocomplete-item" style="color: #999; font-style: italic;">Popular domains (start typing to search)</div>';
+        autocompleteResults.style.display = 'block';
+
+        // Fetch popular/random suggestions from cache
+        fetch('/hmm-library/api/search/?source=pfam&q=kin&limit=5')
+            .then(response => response.json())
+            .then(data => {
+                if (data.results && data.results.length > 0) {
+                    displayResults(data.results);
+                }
+            })
+            .catch(error => console.error('Error fetching suggestions:', error));
+    }
+
+    if (autocompleteInput) {
+        // Show suggestions when field is focused
+        autocompleteInput.addEventListener('focus', function(e) {
+            const query = e.target.value.trim();
+            if (query.length < 3) {
+                showPopularSuggestions();
+            }
+        });
+
+        autocompleteInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim();
+
+            clearTimeout(debounceTimer);
+
+            if (query.length < 3) {
+                showPopularSuggestions();
+                return;
+            }
+
+            // Check if it's already a valid ID format
+            if (/^PF\d{5}$/i.test(query) || /^IPR\d{6}$/i.test(query)) {
+                autocompleteResults.innerHTML = '';
+                autocompleteResults.style.display = 'none';
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                // Show loading indicator
+                autocompleteResults.innerHTML = '<div class="autocomplete-item" style="color: #999;">Loading...</div>';
+                autocompleteResults.style.display = 'block';
+
+                // Determine source: if starts with PF -> pfam, if starts with IPR -> interpro, else ONLY Pfam (faster)
+                let sources = ['pfam'];  // Default: only Pfam (faster and more models)
+
+                if (query.toUpperCase().startsWith('PF')) {
+                    sources = ['pfam'];  // Only Pfam
+                } else if (query.toUpperCase().startsWith('IPR')) {
+                    sources = ['interpro'];  // Only InterPro
+                }
+
+                // Search all sources in parallel
+                Promise.all(
+                    sources.map(source =>
+                        fetch(`/hmm-library/api/search/?source=${source}&q=${encodeURIComponent(query)}&limit=5`)
+                            .then(response => response.json())
+                            .then(data => ({source, results: data.results || []}))
+                            .catch(error => {
+                                console.error(`Error searching ${source}:`, error);
+                                return {source, results: []};
+                            })
+                    )
+                ).then(allResults => {
+                    // Combine results from all sources
+                    let combinedResults = [];
+                    allResults.forEach(sourceData => {
+                        combinedResults = combinedResults.concat(sourceData.results);
+                    });
+
+                    displayResults(combinedResults);
+                });
+            }, 200);
+        });
+
+        // Close autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target !== autocompleteInput && !autocompleteResults.contains(e.target)) {
+                autocompleteResults.innerHTML = '';
+                autocompleteResults.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
+
+{% endblock %}

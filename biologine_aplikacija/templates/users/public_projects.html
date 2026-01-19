@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="main-content">
+  <div class="page-header">
+    <h2 class="tool-title">Public Projects</h2>
+    <div class="tool-selector">
+      <label for="tool-select">Filter:</label>
+      <select id="tool-select" onchange="window.location.href='?tool='+this.value">
+        <option value="" {% if not active_tool %}selected{% endif %}>All Tools</option>
+        <option value="hmmbuild" {% if active_tool == 'hmmbuild' %}selected{% endif %}>HMMBUILD</option>
+        <option value="hmmemit" {% if active_tool == 'hmmemit' %}selected{% endif %}>HMMEMIT</option>
+        <option value="hmmsearch" {% if active_tool == 'hmmsearch' %}selected{% endif %}>HMMSEARCH</option>
+      </select>
+    </div>
+  </div>
+
+  {% if projects %}
+    {% for project in projects %}
+    <div class="project-card" data-tool="{{ project.tool_type }}">
+      <div class="project-header">
+        <div class="project-header-content">
+          <strong class="project-header-title">{{ project.name }}</strong>
+
+          <!-- Tool Type Badge -->
+          {% if not active_tool and project.tool_type %}
+            <span class="badge-tool-light badge-{{ project.tool_type }}">
+              {{ project.tool_type|upper }}
+            </span>
+          {% endif %}
+
+          <!-- Author badge -->
+          <span class="badge-author">
+            {{ project.user.username }}
+          </span>
+        </div>
+        <div class="project-meta-row">
+          <span class="project-date">{{ project.created_at|date:"Y-m-d H:i" }}</span>
+        </div>
+      </div>
+
+      <div class="project-files">
+        {% with tool=active_tool|default:project.tool_type %}
+        {% if tool == 'hmmbuild' %}
+          <div class="file-row">
+            <div class="file-label">Input:</div>
+            <div class="file-list">
+              <a class="button-standard" href="{{ project.msa_file.url }}" download>MSA</a>
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-label">Output:</div>
+            <div class="file-list">
+              {% if project.hmm_file %}<a class="button-standard" href="{{ project.hmm_file.url }}" download>HMM</a>{% endif %}
+            </div>
+          </div>
+
+        {% elif tool == 'hmmsearch' %}
+          <div class="file-row">
+            <div class="file-label">Input:</div>
+            <div class="file-list">
+              {% if project.fasta_file %}<a class="button-standard" href="{{ project.fasta_file.url }}" download>FASTA</a>{% endif %}
+              {% if project.hmm_source == 'pfam' %}
+                <span class="badge-info">Pfam: {{ project.external_hmm_id }}</span>
+              {% elif project.hmm_source == 'interpro' %}
+                <span class="badge-info">InterPro: {{ project.external_hmm_id }}</span>
+              {% elif project.hmm_file %}
+                <a class="button-standard" href="{{ project.hmm_file.url }}" download>HMM</a>
+              {% endif %}
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-label">Output:</div>
+            <div class="file-list">
+              {% if project.out_file %}<a class="button-standard" href="{{ project.out_file.url }}" download>OUT</a>{% endif %}
+              {% if project.tblout_file %}<a class="button-standard" href="{{ project.tblout_file.url }}" download>TBLOUT</a>{% endif %}
+              {% if project.domtbl_file %}<a class="button-standard" href="{{ project.domtbl_file.url }}" download>DOMTBL</a>{% endif %}
+            </div>
+          </div>
+
+        {% elif tool == 'hmmemit' %}
+          <div class="file-row">
+            <div class="file-label">Input:</div>
+            <div class="file-list">
+              {% if project.hmm_source == 'pfam' %}
+                <span class="badge-info">Pfam: {{ project.external_hmm_id }}</span>
+              {% elif project.hmm_source == 'interpro' %}
+                <span class="badge-info">InterPro: {{ project.external_hmm_id }}</span>
+              {% elif project.hmm_file %}
+                <a class="button-standard" href="{{ project.hmm_file.url }}" download>HMM</a>
+              {% endif %}
+            </div>
+          </div>
+          <div class="file-row">
+            <div class="file-label">Output:</div>
+            <div class="file-list">
+              {% if project.output_file %}<a class="button-standard" href="{{ project.output_file.url }}" download>OUT</a>{% endif %}
+            </div>
+          </div>
+        {% endif %}
+        {% endwith %}
+      </div>
+
+      {% if project.result_text %}
+        <details class="result-details">
+          <summary><span class="arrow">▶</span> View Result</summary>
+          <pre>{{ project.result_text }}</pre>
+        </details>
+      {% endif %}
+
+      {% if project.tblout_text %}
+        <details class="result-details">
+          <summary><span class="arrow">▶</span> View .tblout File Content</summary>
+          <pre>{{ project.tblout_text }}</pre>
+        </details>
+      {% endif %}
+
+      {% if project.domtbl_text %}
+        <details class="result-details">
+          <summary><span class="arrow">▶</span> View .domtbl File Content</summary>
+          <pre>{{ project.domtbl_text }}</pre>
+        </details>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+      <div class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?tool={{ active_tool }}&page=1" class="button-standard">First</a>
+          <a href="?tool={{ active_tool }}&page={{ page_obj.previous_page_number }}" class="button-standard">Previous</a>
+        {% endif %}
+
+        <span class="pagination-info">
+          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+          <a href="?tool={{ active_tool }}&page={{ page_obj.next_page_number }}" class="button-standard">Next</a>
+          <a href="?tool={{ active_tool }}&page={{ page_obj.paginator.num_pages }}" class="button-standard">Last</a>
+        {% endif %}
+      </div>
+    {% endif %}
+
+  {% else %}
+    <div style="text-align: center; padding: 60px 40px; background: linear-gradient(135deg, #f8fafc 0%, #eef4fa 100%); border-radius: 12px; border: 2px dashed #c9d6e9; margin-top: 40px; box-shadow: 0 2px 8px rgba(96, 134, 173, 0.06);">
+      <h3 style="color: #5a7391; font-size: 20px; font-weight: 600; margin: 0 0 12px 0;">No Public Projects</h3>
+      <p style="color: #7a8a9e; font-size: 15px; margin: 0; max-width: 400px; margin-left: auto; margin-right: auto; line-height: 1.6;">
+        There are no public projects yet. Create a new project and share it publicly.
+      </p>
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 30px;
+    padding: 20px 0;
+  }
+
+  .pagination-info {
+    font-weight: 600;
+    color: #294059;
+    padding: 0 15px;
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-card">
+    <h2 class="tool-title">Login</h2>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        {% if form.errors %}
+            <div class="form-error">
+                Invalid username or password.
+            </div>
+        {% endif %}
+
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+            </div>
+        {% endfor %}
+
+        <button type="submit" class="button">Login</button>
+    </form>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{% url 'password_reset' %}" style="color: #6086ad; text-decoration: none; font-size: 14px;">Forgot your password?</a>
+    </div>
+</div>
+{% endblock %}

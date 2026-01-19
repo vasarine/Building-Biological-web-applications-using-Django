@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}HMM Analysis Tools{% endblock %}</title>
+    {% load static %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=16">
+</head>
+<body>
+    <!-- Top Header -->
+    <header>
+        <h1><a href="{% url 'home' %}">HMM Analysis Tools</a></h1>
+    </header>
+
+    <!-- Dashboard Layout -->
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <!-- Tools Section -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Tools</div>
+                <ul class="sidebar-nav">
+                    <li><a href="{% url 'hmmbuild_form' %}">HMMBUILD</a></li>
+                    <li><a href="{% url 'hmmemit_form' %}">HMMEMIT</a></li>
+                    <li><a href="{% url 'hmmsearch_form' %}">HMMSEARCH</a></li>
+                </ul>
+            </div>
+
+            <!-- Projects Section -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Projects</div>
+                <ul class="sidebar-nav">
+                    {% if user.is_authenticated %}
+                        <li class="has-submenu">
+                            <a href="{% url 'my-projects' %}" class="parent-link {% if '/users/my-projects/' in request.path %}active{% endif %}">My Projects</a>
+                            {% if '/users/my-projects/' in request.path %}
+                            <ul class="submenu">
+                                <li><a href="{% url 'my-projects' %}?tool=hmmbuild" {% if 'tool=hmmbuild' in request.GET.urlencode %}class="active"{% endif %}>HMMBUILD</a></li>
+                                <li><a href="{% url 'my-projects' %}?tool=hmmemit" {% if 'tool=hmmemit' in request.GET.urlencode %}class="active"{% endif %}>HMMEMIT</a></li>
+                                <li><a href="{% url 'my-projects' %}?tool=hmmsearch" {% if 'tool=hmmsearch' in request.GET.urlencode %}class="active"{% endif %}>HMMSEARCH</a></li>
+                            </ul>
+                            {% endif %}
+                        </li>
+                    {% endif %}
+                    <li class="has-submenu">
+                        <a href="{% url 'public-projects' %}" class="parent-link {% if '/users/public-projects/' in request.path %}active{% endif %}">Public Projects</a>
+                        {% if '/users/public-projects/' in request.path %}
+                        <ul class="submenu">
+                            <li><a href="{% url 'public-projects' %}?tool=hmmbuild" {% if 'tool=hmmbuild' in request.GET.urlencode %}class="active"{% endif %}>HMMBUILD</a></li>
+                            <li><a href="{% url 'public-projects' %}?tool=hmmemit" {% if 'tool=hmmemit' in request.GET.urlencode %}class="active"{% endif %}>HMMEMIT</a></li>
+                            <li><a href="{% url 'public-projects' %}?tool=hmmsearch" {% if 'tool=hmmsearch' in request.GET.urlencode %}class="active"{% endif %}>HMMSEARCH</a></li>
+                        </ul>
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+
+            <!-- User Section -->
+            <div class="sidebar-user">
+                {% if user.is_authenticated %}
+                    <div class="sidebar-user-info">Logged in as</div>
+                    <div class="sidebar-user-name">{{ user.username }}</div>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit">Log Out</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}" class="sidebar-auth-button primary">Login</a>
+                    <a href="{% url 'register' %}" class="sidebar-auth-button primary">Register</a>
+                {% endif %}
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content-area">
+            <div class="content-container">
+                {% block breadcrumbs %}{% endblock %}
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+
+        <!-- History Panel (only for authenticated users) -->
+        {% if user.is_authenticated %}
+        <button class="history-toggle" id="historyToggle">HISTORY</button>
+        <aside class="history-panel" id="historyPanel">
+            <div class="history-header">
+                <h2>History</h2>
+                <button class="history-clear-btn" id="clearHistoryBtn" title="Clear all history">Clear</button>
+            </div>
+            <div class="history-content" id="historyContent">
+                <div class="history-empty">
+                    <p>Loading history...</p>
+                </div>
+            </div>
+        </aside>
+        {% endif %}
+    </div>
+
+    <!-- History Panel JavaScript -->
+    {% if user.is_authenticated %}
+    <script>
+        // Toggle history panel
+        const historyToggle = document.getElementById('historyToggle');
+        const historyPanel = document.getElementById('historyPanel');
+        const historyContent = document.getElementById('historyContent');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+        historyToggle.addEventListener('click', function() {
+            historyPanel.classList.toggle('open');
+            historyToggle.classList.toggle('moved');
+
+            // Load history when opening for the first time
+            if (historyPanel.classList.contains('open') && !historyPanel.dataset.loaded) {
+                loadHistory();
+                historyPanel.dataset.loaded = 'true';
+            }
+        });
+
+        // Close panel when clicking outside
+        document.addEventListener('click', function(event) {
+            if (historyPanel.classList.contains('open') &&
+                !historyPanel.contains(event.target) &&
+                !historyToggle.contains(event.target)) {
+                historyPanel.classList.remove('open');
+                historyToggle.classList.remove('moved');
+            }
+        });
+
+        // Load history from API
+        function loadHistory() {
+            fetch('/users/api/history/?limit=20')
+                .then(response => response.json())
+                .then(data => {
+                    renderHistory(data.history);
+                })
+                .catch(error => {
+                    console.error('Error loading history:', error);
+                    historyContent.innerHTML = `
+                        <div class="history-empty">
+                            <p>Failed to load history</p>
+                        </div>
+                    `;
+                });
+        }
+
+        // Render history items
+        function renderHistory(items) {
+            if (!items || items.length === 0) {
+                historyContent.innerHTML = `
+                    <div class="history-empty">
+                        <p>No history yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            items.forEach(item => {
+                const statusClass = item.status === 'failure' ? 'status-failure' : '';
+                const actionCode = item.action_type_code;
+
+                // Determine if item should be clickable
+                const isFailed = item.status === 'failure' || actionCode === 'project_failed';
+                const isDeleted = actionCode === 'project_deleted';
+                const isCreated = actionCode === 'project_created';
+
+                // Only "Project Completed" items are clickable (results are ready to view)
+                // Created, Failed, and Deleted are not clickable
+                const isClickable = actionCode === 'project_completed' && item.url;
+
+                const timeAgo = formatTimeAgo(new Date(item.timestamp));
+
+                // Determine status classes
+                let statusClasses = [];
+                let displayText = item.action_type;
+
+                if (isClickable) {
+                    statusClasses.push('clickable');
+                } else if (isDeleted) {
+                    statusClasses.push('history-item-deleted');
+                } else if (isFailed) {
+                    statusClasses.push('status-failure');
+                } else if (isCreated) {
+                    statusClasses.push('status-building');
+                }
+
+                const clickHandler = isClickable ? `onclick="navigateToProject('${item.url}')"` : '';
+                const cursorStyle = !isClickable ? 'style="cursor: not-allowed;"' : '';
+
+                html += `
+                    <div class="history-item ${statusClasses.join(' ')}" ${clickHandler} ${cursorStyle}>
+                        <div class="history-item-header">
+                            <span class="history-item-action">${displayText}</span>
+                            <span class="history-item-tool">${item.tool_type}</span>
+                        </div>
+                        <div class="history-item-project">${escapeHtml(item.project_name)}</div>
+                        <div class="history-item-time">${timeAgo}</div>
+                    </div>
+                `;
+            });
+
+            historyContent.innerHTML = html;
+        }
+
+        // Navigate to project
+        function navigateToProject(url) {
+            if (url && url !== '#') {
+                window.location.href = url;
+            }
+        }
+
+        // Format time ago
+        function formatTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+
+            let interval = seconds / 31536000;
+            if (interval > 1) return Math.floor(interval) + ' years ago';
+
+            interval = seconds / 2592000;
+            if (interval > 1) return Math.floor(interval) + ' months ago';
+
+            interval = seconds / 86400;
+            if (interval > 1) return Math.floor(interval) + ' days ago';
+
+            interval = seconds / 3600;
+            if (interval > 1) return Math.floor(interval) + ' hours ago';
+
+            interval = seconds / 60;
+            if (interval > 1) return Math.floor(interval) + ' minutes ago';
+
+            return 'just now';
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Clear history
+        clearHistoryBtn.addEventListener('click', function() {
+            if (!confirm('Are you sure you want to clear all history? This action cannot be undone.')) {
+                return;
+            }
+
+            clearHistoryBtn.disabled = true;
+            clearHistoryBtn.textContent = 'Clearing...';
+
+            fetch('/users/api/history/clear/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    historyContent.innerHTML = `
+                        <div class="history-empty">
+                            <p>No history yet</p>
+                        </div>
+                    `;
+                    clearHistoryBtn.disabled = false;
+                    clearHistoryBtn.textContent = 'Clear';
+                } else {
+                    alert('Failed to clear history. Please try again.');
+                    clearHistoryBtn.disabled = false;
+                    clearHistoryBtn.textContent = 'Clear';
+                }
+            })
+            .catch(error => {
+                console.error('Error clearing history:', error);
+                alert('Failed to clear history. Please try again.');
+                clearHistoryBtn.disabled = false;
+                clearHistoryBtn.textContent = 'Clear';
+            });
+        });
+
+        // Get CSRF token from cookies
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+    {% endif %}
+</body>
+</html>

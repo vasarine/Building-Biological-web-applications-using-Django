@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="main-content">
+    <h2 class="tool-title">{{ project.name }}</h2>
+
+    <div class="share-card">
+        <form method="post" class="tool-form">
+            {% csrf_token %}
+
+            <!-- Visibility Selection -->
+            <div class="form-group-large">
+                <label class="form-label">
+                    {{ form.visibility.label }}
+                </label>
+                <div class="radio-options">
+                    {% for radio in form.visibility %}
+                        <label class="radio-option-label">
+                            {{ radio.tag }}
+                            <span>{{ radio.choice_label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Share Link -->
+            <div class="form-group-large">
+                <label class="form-label">
+                    Share Link
+                </label>
+                <div class="share-link-container">
+                    <input type="text"
+                           id="share-link"
+                           value="{{ share_link }}"
+                           readonly
+                           class="share-link-input">
+                    <button type="button"
+                            onclick="copyShareLink()"
+                            class="share-link-copy-btn">
+                        Copy
+                    </button>
+                </div>
+                <p class="form-info-text">
+                    Link works only if "Link" or "Public" mode is selected.
+                </p>
+            </div>
+
+            <!-- Share with Specific Users -->
+            <div class="form-group-large">
+                <label class="form-label">
+                    Share with specific users
+                </label>
+                <div class="email-share-container">
+                    <input type="email"
+                           id="email-to-share"
+                           placeholder="user@example.com"
+                           class="email-share-input">
+                    <button type="button"
+                            onclick="addUserByEmail()"
+                            class="button-add-user">
+                        Add
+                    </button>
+                </div>
+                <p class="form-info-text">
+                    Enter the email address of a registered user to share this project with them.
+                </p>
+                <div id="error-message" class="form-error" style="display: none;"></div>
+
+                <!-- List of shared users -->
+                {% if shared_users %}
+                <div class="shared-users-list">
+                    <p class="shared-users-title">Currently shared with:</p>
+                    {% for user in shared_users %}
+                    <div class="shared-user-item" data-user-id="{{ user.id }}">
+                        <span class="shared-user-email">{{ user.email }}</span>
+                        <span class="shared-user-name">({{ user.username }})</span>
+                        <button type="button"
+                                onclick="removeUser({{ user.id }})"
+                                class="button-remove-user">
+                            Remove
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Submit Buttons -->
+            <div class="form-actions">
+                <a href="{% url 'my-projects' %}?tool={{ tool }}" class="button-standard">
+                    Back
+                </a>
+                <button type="submit" class="button">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+/* Share card container */
+.share-card {
+    background: white;
+    border: 1px solid #e0e7ef;
+    border-radius: 0px;
+    padding: 32px;
+    box-shadow: 0 2px 12px rgba(96, 134, 173, 0.08);
+    margin-top: 24px;
+}
+
+/* Form sections */
+.form-group-large {
+    margin-bottom: 28px;
+}
+
+.form-group-large:last-of-type {
+    margin-bottom: 0;
+}
+
+/* Share link copy button */
+.share-link-copy-btn {
+    background: #4A6396;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.share-link-copy-btn:hover {
+    background: #3F5686;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+/* Email share input container */
+.email-share-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.email-share-input {
+    flex: 1;
+    border: 2px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.email-share-input:focus {
+    border-color: #4A6396;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(74, 99, 150, 0.15);
+}
+
+.button-add-user {
+    background: #4A6396;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.button-add-user:hover {
+    background: #3F5686;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+/* Shared users list */
+.shared-users-list {
+    margin-top: 20px;
+    padding: 16px;
+    background: #f8fafc;
+    border: 1px solid #e0e7ef;
+    border-radius: 6px;
+}
+
+.shared-users-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: #475569;
+    margin: 0 0 12px 0;
+}
+
+.shared-user-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: white;
+    border: 1px solid #e0e7ef;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.shared-user-item:last-child {
+    margin-bottom: 0;
+}
+
+.shared-user-email {
+    font-weight: 600;
+    color: #334155;
+    font-size: 14px;
+}
+
+.shared-user-name {
+    color: #64748b;
+    font-size: 13px;
+}
+
+.button-remove-user {
+    margin-left: auto;
+    background: #fef0f0;
+    color: #c95656;
+    border: 1.5px solid #e8b8b8;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 12px;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.button-remove-user:hover {
+    background: #fee5e5;
+    border-color: #dba3a3;
+    color: #b94747;
+}
+
+/* Form actions */
+.form-actions {
+    justify-content: flex-end !important;
+    gap: 10px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #e0e7ef;
+}
+
+.form-actions .button-standard,
+.form-actions .button {
+    padding: 10px 22px;
+    margin-top: 0;
+    font-size: 14px;
+}
+</style>
+
+<script>
+function copyShareLink() {
+    const shareLink = document.getElementById('share-link');
+    shareLink.select();
+    shareLink.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(shareLink.value).then(() => {
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = 'Copied!';
+        btn.style.backgroundColor = '#d4edda';
+        btn.style.color = '#155724';
+        btn.style.borderColor = '#c3e6cb';
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.backgroundColor = '';
+            btn.style.color = '';
+            btn.style.borderColor = '';
+        }, 2000);
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function addUserByEmail() {
+    const emailInput = document.getElementById('email-to-share');
+    const email = emailInput.value.trim();
+    const errorMsg = document.getElementById('error-message');
+
+    if (!email) {
+        errorMsg.textContent = 'Please enter an email address';
+        errorMsg.style.display = 'block';
+        return;
+    }
+
+    errorMsg.style.display = 'none';
+
+    const csrftoken = getCookie('csrftoken');
+    const formData = new FormData();
+    formData.append('email', email);
+    formData.append('action', 'add');
+
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Add user to the list
+            let sharedList = document.querySelector('.shared-users-list');
+            if (!sharedList) {
+                // Create list if it doesn't exist
+                sharedList = document.createElement('div');
+                sharedList.className = 'shared-users-list';
+                sharedList.innerHTML = '<p class="shared-users-title">Currently shared with:</p>';
+                document.querySelector('.form-group-large:nth-child(3)').appendChild(sharedList);
+            }
+
+            const userItem = document.createElement('div');
+            userItem.className = 'shared-user-item';
+            userItem.dataset.userId = data.user.id;
+            userItem.innerHTML = `
+                <span class="shared-user-email">${data.user.email}</span>
+                <span class="shared-user-name">(${data.user.username})</span>
+                <button type="button"
+                        onclick="removeUser(${data.user.id})"
+                        class="button-remove-user">
+                    Remove
+                </button>
+            `;
+            sharedList.appendChild(userItem);
+
+            // Clear input
+            emailInput.value = '';
+            errorMsg.style.display = 'none';
+        } else {
+            errorMsg.textContent = data.error;
+            errorMsg.style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        errorMsg.textContent = 'An error occurred. Please try again.';
+        errorMsg.style.display = 'block';
+    });
+}
+
+function removeUser(userId) {
+    if (!confirm('Remove this user from shared list?')) {
+        return;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+    const formData = new FormData();
+    formData.append('user_id', userId);
+    formData.append('action', 'remove');
+
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove user from list
+            const userItem = document.querySelector(`.shared-user-item[data-user-id="${userId}"]`);
+            if (userItem) {
+                userItem.remove();
+
+                // If no more users, remove the list container
+                const sharedList = document.querySelector('.shared-users-list');
+                if (sharedList && sharedList.querySelectorAll('.shared-user-item').length === 0) {
+                    sharedList.remove();
+                }
+            }
+        } else {
+            alert('Error removing user: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+    });
+}
+
+// Allow Enter key to add user
+document.getElementById('email-to-share')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        addUserByEmail();
+    }
+});
+</script>
+{% endblock %}

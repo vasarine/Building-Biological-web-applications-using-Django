@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="main-content">
+    <h2 class="tool-title">{{ project.name }}</h2>
+
+    <div class="project-card">
+        <!-- Project Details -->
+        <div class="shared-project-info">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 class="section-heading" style="margin: 0;">Project Information</h3>
+                {% if user.is_authenticated and project.user == user %}
+                    <a href="{% url 'share-project' tool project.id %}" class="button-standard">
+                        Share
+                    </a>
+                {% endif %}
+            </div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Name:</span>
+                    <span class="info-value">{{ project.name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Owner:</span>
+                    <span class="info-value">{{ project.user.username|default:"Anonymous" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Created:</span>
+                    <span class="info-value">{{ project.created_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Visibility:</span>
+                    <span class="info-value">
+                        {% if project.visibility == 'private' %}
+                            <span class="badge badge-private">Private</span>
+                        {% elif project.visibility == 'link' %}
+                            <span class="badge badge-link">Link</span>
+                        {% elif project.visibility == 'public' %}
+                            <span class="badge badge-public">Public</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Files -->
+        <div class="shared-project-files">
+            <h3 class="section-heading">Files</h3>
+            <div class="project-files">
+                {% if tool == 'hmmbuild' %}
+                    <div class="file-row">
+                        <div class="file-label">Input File:</div>
+                        <div class="file-list">
+                            {% if project.msa_file %}
+                                <a class="button-standard" href="{{ project.msa_file.url }}" download>MSA</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="file-row">
+                        <div class="file-label">Result:</div>
+                        <div class="file-list">
+                            {% if project.hmm_file %}
+                                <a class="button-standard" href="{{ project.hmm_file.url }}" download>HMM</a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                {% elif tool == 'hmmsearch' %}
+                    <div class="file-row">
+                        <div class="file-label">Input Files:</div>
+                        <div class="file-list">
+                            {% if project.fasta_file %}<a class="button-standard" href="{{ project.fasta_file.url }}" download>FASTA</a>{% endif %}
+                            {% if project.hmm_source == 'pfam' %}
+                                <span class="badge-info">Pfam: {{ project.external_hmm_id }}</span>
+                            {% elif project.hmm_source == 'interpro' %}
+                                <span class="badge-info">InterPro: {{ project.external_hmm_id }}</span>
+                            {% elif project.hmm_file %}
+                                <a class="button-standard" href="{{ project.hmm_file.url }}" download>HMM</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="file-row">
+                        <div class="file-label">Results:</div>
+                        <div class="file-list">
+                            {% if project.out_file %}<a class="button-standard" href="{{ project.out_file.url }}" download>OUT</a>{% endif %}
+                            {% if project.tblout_file %}<a class="button-standard" href="{{ project.tblout_file.url }}" download>TBLOUT</a>{% endif %}
+                            {% if project.domtbl_file %}<a class="button-standard" href="{{ project.domtbl_file.url }}" download>DOMTBL</a>{% endif %}
+                        </div>
+                    </div>
+
+                {% elif tool == 'hmmemit' %}
+                    <div class="file-row">
+                        <div class="file-label">Input File:</div>
+                        <div class="file-list">
+                            {% if project.hmm_source == 'pfam' %}
+                                <span class="badge-info">Pfam: {{ project.external_hmm_id }}</span>
+                            {% elif project.hmm_source == 'interpro' %}
+                                <span class="badge-info">InterPro: {{ project.external_hmm_id }}</span>
+                            {% elif project.hmm_file %}
+                                <a class="button-standard" href="{{ project.hmm_file.url }}" download>HMM</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="file-row">
+                        <div class="file-label">Result:</div>
+                        <div class="file-list">
+                            {% if project.output_file %}<a class="button-standard" href="{{ project.output_file.url }}" download>OUT</a>{% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        {% if project.result_text %}
+            <details class="result-details">
+                <summary><span class="arrow">▶</span> View Result</summary>
+                <pre>{{ project.result_text }}</pre>
+            </details>
+        {% endif %}
+
+        <!-- Additional Results for hmmsearch -->
+        {% if tool == 'hmmsearch' %}
+            {% if project.tblout_text %}
+                <details class="result-details">
+                    <summary><span class="arrow">▶</span> View .tblout File Content</summary>
+                    <pre>{{ project.tblout_text }}</pre>
+                </details>
+            {% endif %}
+
+            {% if project.domtbl_text %}
+                <details class="result-details">
+                    <summary><span class="arrow">▶</span> View .domtbl File Content</summary>
+                    <pre>{{ project.domtbl_text }}</pre>
+                </details>
+            {% endif %}
+        {% endif %}
+
+        <!-- Action Buttons -->
+        <div class="shared-project-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+            <a href="{% url 'my-projects' %}?tool={{ tool }}" class="button">
+                Back to My Projects
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

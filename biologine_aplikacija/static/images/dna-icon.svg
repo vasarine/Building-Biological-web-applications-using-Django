@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+
+  <path d="M20 14 L20 50 L44 50 L44 24 L34 14 Z" fill="white" stroke="#5B8DC4" stroke-width="2.5"/>
+  <path d="M34 14 L34 24 L44 24" fill="#E3F2FD" stroke="#5B8DC4" stroke-width="2.5" stroke-linejoin="round"/>
+  
+  <line x1="24" y1="30" x2="40" y2="30" stroke="#5B8DC4" stroke-width="1.5" opacity="0.5"/>
+  <line x1="24" y1="35" x2="40" y2="35" stroke="#5B8DC4" stroke-width="1.5" opacity="0.5"/>
+  <line x1="24" y1="40" x2="36" y2="40" stroke="#5B8DC4" stroke-width="1.5" opacity="0.5"/>
+</svg>

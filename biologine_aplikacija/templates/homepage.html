@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="homepage">
+    <div class="hero-section-simple" style="padding: 20px 0; margin-bottom: 20px; text-align: center;">
+        <h1 class="hero-title" style="font-size: 2rem; margin: 0; text-align: center;">HMM Analysis Tools</h1>
+        <p class="hero-subtitle" style="font-size: 0.95rem; margin: 8px auto 0 auto; text-align: center !important; display: block; max-width: 100%;">Biological web application for biological sequence analysis using hidden Markov models (HMMs).</p>
+    </div>
+
+    <div class="tools-section">
+        <h2 class="section-title" style="font-size: 1.75rem; text-align: center;">Available Tools</h2>
+        <div class="tools-grid">
+            <div class="tool-card">
+                <div class="tool-icon">
+                    <img src="{% static 'images/dna-icon.svg' %}" alt="DNA Icon">
+                </div>
+                <h3>HMMBUILD</h3>
+                <p>Build a HMM profile from a multiple sequence alignment file (MSA).
+                    Useful for modeling conserved sequence patterns and insertion/deletion events.</p>
+                <a href="{% url 'hmmbuild_form' %}" class="tool-link">Use Tool</a>
+            </div>
+            <div class="tool-card">
+                <div class="tool-icon">
+                    <img src="{% static 'images/microscope-icon.svg' %}" alt="Microscope Icon">
+                </div>
+                <h3>HMMEMIT</h3>
+                <p>Generate random sequences from a HMM profile. Useful for model validation and sequence simulation based on the created HMM model.</p>
+                <a href="{% url 'hmmemit_form' %}" class="tool-link">Use Tool</a>
+            </div>
+            <div class="tool-card">
+                <div class="tool-icon">
+                    <img src="{% static 'images/search-icon.svg' %}" alt="Search Icon">
+                </div>
+                <h3>HMMSEARCH</h3>
+                <p>Search sequences against a HMM profile.
+                    Useful for identifying homologous sequences and domain-level matches.</p>
+                <a href="{% url 'hmmsearch_form' %}" class="tool-link">Use Tool</a>
+            </div>
+        </div>
+    </div>
+
+    {% if not user.is_authenticated %}
+    <div class="cta-section" style="margin-bottom: 30px;">
+        <h2 class="section-title">Get Started</h2>
+        <p class="cta-text">Create an account to save and manage your projects, share results with colleagues.</p>
+        <div class="cta-buttons">
+            <a href="{% url 'register' %}" class="button-primary">Register</a>
+            <a href="{% url 'login' %}" class="button-secondary">Login</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="public-section" style="margin-top: 30px; padding-top: 20px;">
+        <h2 class="section-title">Public Projects</h2>
+        <p class="section-text">Browse other users' analysis projects and results.</p>
+        <a href="{% url 'public-projects' %}" class="button-secondary">View Public Projects</a>
+    </div>
+</div>
+{% endblock %}
